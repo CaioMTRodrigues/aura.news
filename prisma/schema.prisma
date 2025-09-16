@@ -1,0 +1,190 @@
+// prisma/schema.prisma
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+/* =========================
+   Enums
+   ========================= */
+enum IssueStatus {
+  draft
+  scheduled
+  sent
+}
+
+enum Tag {
+  IA
+  Startups
+  DevHacks
+  Gadgets
+  MercadoTech
+  FuturoDoTrabalho
+}
+
+enum EventType {
+  open
+  click
+  bounce
+  spam
+}
+
+enum AssetKind {
+  logo
+  thumb
+  header
+  icon
+}
+
+enum UserRole {
+  admin
+  editor
+}
+
+enum SubscriberStatus {
+  active
+  unconfirmed
+  unsub
+}
+
+/* =========================
+   Modelos de negócio
+   ========================= */
+model Subscriber {
+  id        String           @id @default(cuid())
+  email     String           @unique
+  status    SubscriberStatus @default(active)
+  createdAt DateTime         @default(now())
+  events    SendEvent[]
+}
+
+model Issue {
+  id           String        @id @default(cuid())
+  slug         String        @unique
+  title        String
+  subject      String
+  preheader    String
+  status       IssueStatus   @default(draft)
+  scheduledFor DateTime?
+  sentAt       DateTime?
+  createdAt    DateTime      @default(now())
+
+  draft        Draft?
+  curatedItems CuratedItem[]
+  growth       GrowthPack?
+  assets       Asset[]
+
+  // Campo inverso da relação com SendEvent
+  sendEvents   SendEvent[]
+}
+
+model CuratedItem {
+  id          String   @id @default(cuid())
+  issueId     String
+  issue       Issue    @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  source      String
+  url         String
+  title       String
+  summary     String
+  category    Tag
+  impactScore Int
+  createdAt   DateTime @default(now())
+}
+
+model Draft {
+  id      String @id @default(cuid())
+  issueId String @unique
+  issue   Issue  @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  html    String
+  text    String
+}
+
+model GrowthPack {
+  id         String @id @default(cuid())
+  issueId    String @unique
+  issue      Issue  @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  ctas       Json
+  posts      Json
+  abSubjects Json
+}
+
+model SendEvent {
+  id           String     @id @default(cuid())
+  issueId      String
+  issue        Issue      @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  subscriberId String
+  subscriber   Subscriber @relation(fields: [subscriberId], references: [id], onDelete: Cascade)
+  type         EventType
+  url          String?
+  createdAt    DateTime   @default(now())
+
+  @@index([issueId])
+  @@index([subscriberId])
+}
+
+model Asset {
+  id      String   @id @default(cuid())
+  issueId String
+  issue   Issue    @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  kind    AssetKind
+  url     String
+  alt     String
+}
+
+/* =========================
+   Usuários (Admin/Editor)
+   ========================= */
+model User {
+  id        String   @id @default(cuid())
+  name      String?
+  email     String   @unique
+  role      UserRole @default(admin)
+  createdAt DateTime @default(now())
+
+  // Relations com NextAuth
+  accounts  Account[]
+  sessions  Session[]
+}
+
+/* =========================
+   Modelos NextAuth (Prisma Adapter)
+   ========================= */
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
