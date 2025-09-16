@@ -59,7 +59,10 @@ model Subscriber {
   email     String           @unique
   status    SubscriberStatus @default(active)
   createdAt DateTime         @default(now())
+
   events    SendEvent[]
+
+  @@index([status])
 }
 
 model Issue {
@@ -80,6 +83,9 @@ model Issue {
 
   // Campo inverso da relação com SendEvent
   sendEvents   SendEvent[]
+
+  @@index([status])
+  @@index([scheduledFor])
 }
 
 model CuratedItem {
@@ -93,6 +99,10 @@ model CuratedItem {
   category    Tag
   impactScore Int
   createdAt   DateTime @default(now())
+
+  @@index([issueId])
+  @@index([category])
+  @@index([impactScore])
 }
 
 model Draft {
@@ -124,6 +134,8 @@ model SendEvent {
 
   @@index([issueId])
   @@index([subscriberId])
+  @@index([type])
+  @@index([createdAt])
 }
 
 model Asset {
@@ -133,22 +145,26 @@ model Asset {
   kind    AssetKind
   url     String
   alt     String
+
+  @@index([issueId])
+  @@index([kind])
 }
 
 /* =========================
    Usuários (Admin/Editor)
    ========================= */
 model User {
-  id        String   @id @default(cuid())
-  name      String?
-  email     String   @unique
-  role      UserRole @default(admin)
-  createdAt DateTime @default(now())
+  id            String   @id @default(cuid())
+  name          String?
+  email         String   @unique
+  emailVerified DateTime?          
+  role          UserRole @default(admin)
+  createdAt     DateTime @default(now())
 
-  // Relations com NextAuth
-  accounts  Account[]
-  sessions  Session[]
+  accounts      Account[]
+  sessions      Session[]
 }
+
 
 /* =========================
    Modelos NextAuth (Prisma Adapter)
